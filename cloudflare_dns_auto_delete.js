@@ -3,7 +3,7 @@ if (window.location.href.includes('https://dash.cloudflare.com/')) {
 
     // These XPath queries are used to target specific elements in the Cloudflare DNS page.
     // Modify these if Cloudflare's structure changes in the future.
-    let tableXPath = "//*[@id='react-app']/div/div/div/div[1]/div/div/main/div/div/div[2]/div[2]/div[2]/div[2]/table";
+    let tableXPath = "(//*[@id='react-app']/div//main//table)[1]";
     let edit_xp = "//tr//td//button//span[contains(text(),'Edit')]";
     let delete_xp = "//tr//td//form//div//button[contains(text(),'Delete')]";
     let delete_confirm_xp = "//div//div//div//button//span[contains(text(),'Delete')]";
