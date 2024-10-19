@@ -30,7 +30,7 @@ if (window.location.href.includes('https://dash.cloudflare.com/')) {
         button.style.letterSpacing = "0.7px";
         button.style.transition = "all 0.3s ease"; // Smoother transition for all properties
         button.style.boxShadow = "0px 10px 20px rgba(0,0,0,0.1)";
-      
+
         // Event listeners for button hover, click, etc.
         button.onmouseover = () => {
             button.style.background = "linear-gradient(90deg, #495057, #343a40)";
@@ -42,13 +42,17 @@ if (window.location.href.includes('https://dash.cloudflare.com/')) {
         };
         button.onmousedown = () => button.style.transform = "translateY(2px)";
         button.onmouseup = () => button.style.transform = "translateY(0)";
-        
+
         return button;
     }
 
     /**
      * Sequentially delete DNS records.
      * This function identifies and clicks the 'Edit', 'Delete', and 'Delete Confirm' buttons in a loop until all records are deleted.
+     * Some records, such as Metaplex or IPFS settings, cannot be deleted through this interface 
+     * because the 'Delete' button is not present. These records can only be edited or deleted by navigating to the 
+     * Web3 dashboard in Cloudflare's settings. When such records are encountered, they are skipped, and the script 
+     * continues with the next record.
      *
      * Parameters:
      *     editXPath (string): XPath query for the 'Edit' button.
@@ -58,21 +62,54 @@ if (window.location.href.includes('https://dash.cloudflare.com/')) {
      * Returns:
      *     None
      */
-    function deleteDNSRecords(editXPath, deleteXPath, confirmXPath) {
-        let del_interval = setInterval(() => {
-            let editSelector = document.evaluate(editXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-            if (editSelector.singleNodeValue) {
-                editSelector.singleNodeValue.click();
-                let deleteSelector = document.evaluate(deleteXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                deleteSelector.singleNodeValue.click();
-                let confirmSelector = document.evaluate(confirmXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                confirmSelector.singleNodeValue.click();
-            } else {
-                console.log('Stopped because of no more records');
-                alert('Stopped because of no more records');
-                clearInterval(del_interval);
+    function deleteDnsRecords(editXPath, deleteXPath, confirmXPath) {
+        // Collect all 'Edit' buttons into a snapshot
+        let editButtonsSnapshot = document.evaluate(editXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        let totalRecords = editButtonsSnapshot.snapshotLength;
+        let currentIndex = 0;
+
+        function processNextRecord() {
+            if (currentIndex >= totalRecords) {
+                console.log('All records processed.');
+                alert('All records processed.');
+                return;
             }
-        }, 1000);
+
+            let editButton = editButtonsSnapshot.snapshotItem(currentIndex);
+            currentIndex++;
+
+            if (editButton) {
+                editButton.click();
+
+                setTimeout(() => {
+                    let deleteButton = document.evaluate(deleteXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                    if (deleteButton) {
+                        deleteButton.click();
+
+                        setTimeout(() => {
+                            let confirmButton = document.evaluate(confirmXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                            if (confirmButton) {
+                                confirmButton.click();
+
+                                // Wait for the deletion to complete before moving to the next record
+                                setTimeout(processNextRecord, 1000);
+                            } else {
+                                console.log("Confirm Delete button not found, skipping to next record.");
+                                processNextRecord();
+                            }
+                        }, 500);
+                    } else {
+                        console.log("Delete button not found, skipping to next record.");
+                        processNextRecord();
+                    }
+                }, 500);
+            } else {
+                console.log("Edit button not found, skipping to next record.");
+                processNextRecord();
+            }
+        }
+
+        processNextRecord();
     }
 
     /**
@@ -89,7 +126,7 @@ if (window.location.href.includes('https://dash.cloudflare.com/')) {
     function addButtonIfNotExists(btn, tableXPathQuery) {
         let intervalId = setInterval(() => {
             let table = document.evaluate(tableXPathQuery, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-            
+
             if (table) {
                 if (table.previousSibling !== btn) {
                     table.parentElement.insertBefore(btn, table);
@@ -103,7 +140,7 @@ if (window.location.href.includes('https://dash.cloudflare.com/')) {
     }
 
     let button = createDeleteButton();
-    button.addEventListener('click', () => deleteDNSRecords(edit_xp, delete_xp, delete_confirm_xp));
+    button.addEventListener('click', () => deleteDnsRecords(edit_xp, delete_xp, delete_confirm_xp));
     addButtonIfNotExists(button, tableXPath);
-  
+
 }
